@@ -69,6 +69,8 @@ export interface RunResult {
   total: number;
   minutes: number;
   lessonId?: string;
+  /** Extra points, e.g. for a completed tutor mission. */
+  bonusXp?: number;
 }
 
 export function applyRun(p: Progress, run: RunResult, now: number): Progress {
@@ -96,7 +98,7 @@ export function applyRun(p: Progress, run: RunResult, now: number): Progress {
   return {
     ...p,
     updatedAt: now,
-    xp: p.xp + run.correct * 10 + bonus,
+    xp: p.xp + run.correct * 10 + bonus + (run.bonusXp ?? 0),
     items,
     lessons,
     log: log.slice(-400),

@@ -1,5 +1,7 @@
-// Curriculum content. Stage 0 (Hangul) is fully playable; later stages are
+// Curriculum content. Stages 0 (Hangul) and 1 are playable; later stages are
 // listed on the learning path as the roadmap.
+
+import { STAGE1_LESSONS } from "./stage1";
 
 export interface Word {
   ko: string;
@@ -15,6 +17,58 @@ export interface InfoCard {
   body: string[];
 }
 
+export interface GrammarCard {
+  title: string;
+  body: string[];
+  examples: { ko: string; de: string }[];
+}
+
+export interface DialogueLine {
+  /** "A" is the other person, "B" is the learner's role. */
+  who: "A" | "B";
+  name: string;
+  ko: string;
+  de: string;
+}
+
+export interface Dialogue {
+  scene: string;
+  lines: DialogueLine[];
+}
+
+export interface Sentence {
+  ko: string;
+  de: string;
+  /** Tiles in the right order; joined with spaces they give `ko`. */
+  tiles: string[];
+  distractors?: string[];
+}
+
+export interface Gap {
+  /** Sentence with ___ where the answer goes. */
+  ko: string;
+  de: string;
+  answer: string;
+  options: string[];
+}
+
+export interface Mission {
+  title: string;
+  /** What the learner has to achieve, in German. */
+  goal: string;
+  /** Who the tutor plays and where. */
+  role: string;
+  checklist: string[];
+  opener: string;
+  openerDe: string;
+}
+
+export interface Verb {
+  dict: string;
+  polite: string;
+  de: string;
+}
+
 export interface Lesson {
   id: string;
   stage: number;
@@ -25,9 +79,16 @@ export interface Lesson {
   words: Word[];
   /** Groups of syllables that are easy to confuse by ear. */
   soundGroups?: string[][];
+  grammar?: GrammarCard[];
+  dialogue?: Dialogue;
+  sentences?: Sentence[];
+  gaps?: Gap[];
+  mission?: Mission;
+  numbers?: "sino" | "native";
+  verbs?: Verb[];
 }
 
-export const LESSONS: Lesson[] = [
+const HANGUL_LESSONS: Lesson[] = [
   {
     id: "h1",
     stage: 0,
@@ -396,6 +457,8 @@ export const LESSONS: Lesson[] = [
   },
 ];
 
+export const LESSONS: Lesson[] = [...HANGUL_LESSONS, ...STAGE1_LESSONS];
+
 export interface RoadmapStage {
   stage: number;
   title: string;
@@ -415,16 +478,7 @@ export const ROADMAP: RoadmapStage[] = [
     stage: 1,
     title: "Erste Gespräche",
     level: "TOPIK 1, Teil 1",
-    units: [
-      "Sich vorstellen: 저는 … 이에요/예요",
-      "Das ist …: 이것, 그것, 저것",
-      "Haben und nicht haben: 있어요 / 없어요",
-      "Zahlen I: 일, 이, 삼 … (Preise, Telefonnummern)",
-      "Zahlen II: 하나, 둘, 셋 … (Alter, Anzahl)",
-      "Im Café bestellen: … 주세요",
-      "Die höfliche Verbform -아요/-어요",
-      "Objekte und Orte: 을/를, 에, 에서",
-    ],
+    units: STAGE1_LESSONS.map((l) => l.title),
   },
   {
     stage: 2,

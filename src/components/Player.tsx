@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { JAMO_BY_CHAR, GROUP_LABELS } from "../data/jamo";
 import type { Word } from "../data/lessons";
-import type { Exercise } from "../lib/exercises";
+import { shuffle, UNSCORED, type Exercise } from "../lib/exercises";
 import { composeJamo, toKeySequence, keysForJamo, soundSyllable } from "../lib/hangul";
 import type { RunResult } from "../lib/progress";
 import { listenOnce, matchesSpoken, recognitionSupported, speak } from "../lib/speech";
 import { HangulText } from "./HangulText";
 import { Keyboard } from "./Keyboard";
+import { BuildStep, DialogueStep, GrammarStep, RoleStep, VocabStep } from "./ConversationSteps";
+import { MissionStep } from "./MissionStep";
+import { SpeakerButton, useEnter, WordReveal } from "./ui";
 
 interface Props {
   title: string;
@@ -32,13 +35,25 @@ const QUESTIONS: Record<string, string> = {
   listenWord: "Welches Wort hörst du?",
   pair: "Genau hinhören: Welche Silbe war das?",
   syllable: "Wie liest man diese Silbe?",
+  fill: "Was gehört in die Lücke?",
+  number: "Welche Zahl hörst du?",
+  conjugate: "Wie lautet die höfliche Alltagsform?",
 };
+
+const MISSION_XP = 30;
+
+/** A retried exercise gets its options in a new order, so position cannot be memorised. */
+function reshuffled(ex: Exercise): Exercise {
+  if (ex.kind === "choice" || ex.kind === "role") return { ...ex, options: shuffle(ex.options) };
+  if (ex.kind === "build") return { ...ex, tiles: shuffle(ex.tiles) };
+  return ex;
+}
 
 export function Player({ title, exercises, showRoman, lessonId, onFinish, onAbort }: Props) {
   const [queue, setQueue] = useState<QueueEntry[]>(() => exercises.map((ex) => ({ ex, retry: false })));
   const [pos, setPos] = useState(0);
   const [confirmAbort, setConfirmAbort] = useState(false);
-  const stats = useRef({ correct: 0, total: 0, items: {} as Record<string, boolean>, activeMs: 0, last: Date.now() });
+  const stats = useRef({ correct: 0, total: 0, items: {} as Record<string, boolean>, activeMs: 0, last: Date.now(), bonusXp: 0 });
 
   const tick = useCallback(() => {
     const now = Date.now();
@@ -49,11 +64,11 @@ export function Player({ title, exercises, showRoman, lessonId, onFinish, onAbor
   const result = useCallback((): RunResult => {
     tick();
     const s = stats.current;
-    return { items: s.items, correct: s.correct, total: s.total, minutes: s.activeMs / 60000, lessonId };
+    return { items: s.items, correct: s.correct, total: s.total, minutes: s.activeMs / 60000, lessonId, bonusXp: s.bonusXp };
   }, [lessonId, tick]);
 
   const entry = queue[pos];
-  const scoredTotal = exercises.filter((e) => e.kind !== "info" && e.kind !== "intro").length;
+  const scoredTotal = exercises.filter((e) => !UNSCORED.has(e.kind)).length;
 
   // `requeue` defaults to "answer was wrong"; a solution found with a hint
   // counts as a mistake but does not need to come back in this run
@@ -68,7 +83,7 @@ export function Player({ title, exercises, showRoman, lessonId, onFinish, onAbor
         if (correct) s.correct += 1;
       }
       if (itemId) s.items[itemId] = (s.items[itemId] ?? true) && correct && !retry;
-      if (requeue) setQueue((q) => [...q, { ex, retry: true }]);
+      if (requeue) setQueue((q) => [...q, { ex: reshuffled(ex), retry: true }]);
     },
     [pos, queue, tick],
   );
@@ -119,34 +134,27 @@ export function Player({ title, exercises, showRoman, lessonId, onFinish, onAbor
           <ChoiceStep ex={entry.ex} showRoman={showRoman} onAnswer={answer} onNext={next} />
         )}
         {entry.ex.kind === "type" && (
-          <TypeStep word={entry.ex.word} showRoman={showRoman} onAnswer={answer} onNext={next} />
+          <TypeStep word={entry.ex.word} dictation={entry.ex.dictation} showRoman={showRoman} onAnswer={answer} onNext={next} />
         )}
         {entry.ex.kind === "speak" && <SpeakStep word={entry.ex.word} onAnswer={answer} onNext={next} />}
+        {entry.ex.kind === "grammar" && <GrammarStep card={entry.ex.card} onNext={next} />}
+        {entry.ex.kind === "vocab" && <VocabStep words={entry.ex.words} showRoman={showRoman} onNext={next} />}
+        {entry.ex.kind === "dialogue" && <DialogueStep dialogue={entry.ex.dialogue} onNext={next} />}
+        {entry.ex.kind === "role" && <RoleStep ex={entry.ex} onAnswer={answer} onNext={next} />}
+        {entry.ex.kind === "build" && <BuildStep ex={entry.ex} onAnswer={answer} onNext={next} />}
+        {entry.ex.kind === "mission" && (
+          <MissionStep
+            mission={entry.ex.mission}
+            lesson={entry.ex.lesson}
+            onDone={(passed) => {
+              if (passed) stats.current.bonusXp += MISSION_XP;
+              next();
+            }}
+          />
+        )}
       </div>
       <p className="player-foot">{scoredTotal} Aufgaben in dieser Runde · Fehler kommen am Ende noch einmal</p>
     </div>
-  );
-}
-
-function useEnter(fn: (() => void) | null) {
-  useEffect(() => {
-    if (!fn) return;
-    const h = (e: KeyboardEvent) => {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        fn();
-      }
-    };
-    window.addEventListener("keydown", h);
-    return () => window.removeEventListener("keydown", h);
-  }, [fn]);
-}
-
-function SpeakerButton({ text, label = "Anhören", big }: { text: string; label?: string; big?: boolean }) {
-  return (
-    <button type="button" className={big ? "btn-audio big" : "btn-audio"} onClick={() => speak(text)}>
-      <span aria-hidden="true">🔊</span> {label}
-    </button>
   );
 }
 
@@ -215,17 +223,6 @@ function IntroStep({ jamo, onNext }: { jamo: string; onNext: () => void }) {
   );
 }
 
-function WordReveal({ word, showRoman }: { word: Word; showRoman: boolean }) {
-  return (
-    <div className="reveal">
-      <span className="ko reveal-ko">{word.ko}</span>
-      {showRoman && <span className="reveal-roman">{word.roman}</span>}
-      <span className="reveal-de">{word.de}</span>
-      {word.say && <span className="reveal-say">gesprochen: <span className="ko">[{word.say}]</span></span>}
-    </div>
-  );
-}
-
 function ChoiceStep({
   ex,
   showRoman,
@@ -238,8 +235,10 @@ function ChoiceStep({
   onNext: () => void;
 }) {
   const [picked, setPicked] = useState<string | null>(null);
-  const isAudio = ex.mode === "listen" || ex.mode === "listenWord" || ex.mode === "pair";
-  const koOptions = ex.mode === "listen" || ex.mode === "listenWord" || ex.mode === "pair";
+  const isAudio = ex.mode === "listen" || ex.mode === "listenWord" || ex.mode === "pair" || ex.mode === "number";
+  const koOptions = ["listen", "listenWord", "pair", "fill", "conjugate"].includes(ex.mode);
+  // the full sentence of a gap exercise, without the German hint in parentheses
+  const filled = ex.mode === "fill" ? ex.prompt.replace("___", ex.answer).replace(/\s*\(.*?\)\s*$/, "") : null;
 
   useEffect(() => {
     if (ex.audio) speak(ex.audio);
@@ -250,9 +249,11 @@ function ChoiceStep({
       if (picked) return;
       setPicked(opt);
       onAnswer(opt === ex.answer);
-      if (!isAudio) speak(ex.word?.ko ?? ex.prompt);
+      if (filled) speak(filled);
+      else if (ex.mode === "conjugate") speak(ex.answer);
+      else if (!isAudio) speak(ex.word?.ko ?? ex.prompt);
     },
-    [picked, ex, onAnswer, isAudio],
+    [picked, ex, onAnswer, isAudio, filled],
   );
 
   useEffect(() => {
@@ -278,6 +279,23 @@ function ChoiceStep({
           <SpeakerButton text={ex.audio ?? ""} label="Nochmal hören" big />
           <span className="muted small">Leertaste spielt erneut ab</span>
         </div>
+      ) : ex.mode === "fill" ? (
+        <div className="prompt-fill">
+          <p className="ko fill-sentence">
+            {ex.prompt.split("___").map((part, i, arr) => (
+              <span key={i}>
+                {part}
+                {i < arr.length - 1 && <span className={`gap ${picked ? (picked === ex.answer ? "ok" : "bad") : ""}`}>{picked ? ex.answer : "?"}</span>}
+              </span>
+            ))}
+          </p>
+          <p className="muted">{ex.hint}</p>
+        </div>
+      ) : ex.mode === "conjugate" ? (
+        <div className="prompt-fill">
+          <p className="prompt-word ko">{ex.prompt}</p>
+          <p className="muted">{ex.hint}</p>
+        </div>
       ) : (
         <div className={ex.mode === "sound" ? "glyph" : "prompt-word ko"}>{ex.prompt}</div>
       )}
@@ -296,6 +314,18 @@ function ChoiceStep({
         <div className={`feedback ${correct ? "ok" : "bad"}`}>
           <p className="feedback-title">{correct ? "Richtig!" : `Leider falsch. Richtig ist: ${ex.answer}`}</p>
           {ex.word && <WordReveal word={ex.word} showRoman={showRoman} />}
+          {filled && (
+            <p className="row">
+              <span className="ko big-inline">{filled}</span>
+              <SpeakerButton text={filled} />
+            </p>
+          )}
+          {ex.mode === "number" && ex.audio && (
+            <p className="row">
+              <span className="ko big-inline">{ex.audio}</span>
+              <SpeakerButton text={ex.audio} />
+            </p>
+          )}
           {!ex.word && ex.mode === "pair" && (
             <div className="row">
               {ex.options.map((o) => (
@@ -312,13 +342,17 @@ function ChoiceStep({
   );
 }
 
+const PUNCT = /[.,!?~]/g;
+
 function TypeStep({
   word,
+  dictation,
   showRoman,
   onAnswer,
   onNext,
 }: {
   word: Word;
+  dictation?: boolean;
   showRoman: boolean;
   onAnswer: (c: boolean, requeue?: boolean) => void;
   onNext: () => void;
@@ -327,7 +361,9 @@ function TypeStep({
   const [checked, setChecked] = useState<null | boolean>(null);
   const [showHint, setShowHint] = useState(false);
   const text = composeJamo(keys);
-  const target = toKeySequence(word.ko);
+  // punctuation is not on the keyboard, so it is neither typed nor compared
+  const plain = word.ko.replace(PUNCT, "").trim();
+  const target = toKeySequence(plain);
   const nextKey = showHint ? target[keys.length] ?? null : null;
 
   useEffect(() => {
@@ -336,7 +372,7 @@ function TypeStep({
 
   const check = useCallback(() => {
     if (checked !== null || !keys.length) return;
-    const ok = text === word.ko;
+    const ok = text.replace(/\s+/g, " ").trim() === plain;
     setChecked(ok);
     onAnswer(ok && !showHint, !ok);
     speak(word.ko);
@@ -349,16 +385,16 @@ function TypeStep({
     if (checked === null) setKeys((k) => k.slice(0, -1));
   }, [checked]);
   const onSpace = useCallback(() => {
-    if (checked === null && word.ko.includes(" ")) setKeys((k) => [...k, " "]);
-  }, [checked, word.ko]);
+    if (checked === null && plain.includes(" ")) setKeys((k) => [...k, " "]);
+  }, [checked, plain]);
   const onEnter = useCallback(() => (checked === null ? check() : onNext()), [checked, check, onNext]);
 
   return (
     <div className="card type">
-      <p className="eyebrow">Schreib das Wort auf Koreanisch</p>
+      <p className="eyebrow">{dictation ? "Diktat: Hör zu und schreib den Satz" : "Schreib das Wort auf Koreanisch"}</p>
       <div className="type-prompt">
-        <span className="type-de">{word.de}</span>
-        {showRoman && <span className="type-roman">{word.roman}</span>}
+        <span className={dictation ? "type-de type-de-small" : "type-de"}>{word.de}</span>
+        {showRoman && word.roman && <span className="type-roman">{word.roman}</span>}
         <SpeakerButton text={word.ko} />
       </div>
       <div className={`type-field ${checked === true ? "ok" : checked === false ? "bad" : ""}`} aria-live="polite">
@@ -367,7 +403,7 @@ function TypeStep({
       </div>
       {checked === null ? (
         <>
-          <Keyboard onJamo={onJamo} onBackspace={onBackspace} onSpace={word.ko.includes(" ") ? onSpace : undefined} onEnter={onEnter} hint={nextKey} />
+          <Keyboard onJamo={onJamo} onBackspace={onBackspace} onSpace={plain.includes(" ") ? onSpace : undefined} onEnter={onEnter} hint={nextKey} />
           <div className="row">
             <button type="button" className="btn-secondary" onClick={() => setShowHint(true)} disabled={showHint}>
               Tipp: nächste Taste zeigen
@@ -447,7 +483,8 @@ function SpeakStep({ word, onAnswer, onNext }: { word: Word; onAnswer: (c: boole
       <p className="eyebrow">Sprich laut nach</p>
       <div className="prompt-word ko">{word.ko}</div>
       <p className="muted">
-        {word.roman} · {word.de}
+        {word.roman && `${word.roman} · `}
+        {word.de}
         {word.say && (
           <>
             {" "}· gesprochen <span className="ko">[{word.say}]</span>

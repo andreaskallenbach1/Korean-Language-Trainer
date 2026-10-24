@@ -43,7 +43,7 @@ export function Dashboard({ progress, sync, nextLesson, onSession, onReview, onL
         <div className="session-head">
           <div>
             <p className="eyebrow">Deine nächste Sitzung · ca. 45–60 Minuten</p>
-            <h2>{nextLesson ? nextLesson.title : "Hangul abgeschlossen"}</h2>
+            <h2>{nextLesson ? nextLesson.title : "Alle Lektionen abgeschlossen"}</h2>
           </div>
           <button type="button" className="btn btn-lg" onClick={onSession} disabled={!nextLesson && due === 0}>
             Sitzung starten
@@ -63,9 +63,9 @@ export function Dashboard({ progress, sync, nextLesson, onSession, onReview, onL
           </li>
           <li className={nextLesson ? "" : "is-skip"}>
             <span className="step-name">
-              {nextLesson ? `Neue Lektion: ${nextLesson.summary}` : "Alle Hangul-Lektionen erledigt"}
+              {nextLesson ? `Neue Lektion: ${nextLesson.summary}` : "Alle verfügbaren Lektionen erledigt"}
             </span>
-            <span className="step-meta">{nextLesson ? "~30 Min." : "Stufe 1 folgt"}</span>
+            <span className="step-meta">{nextLesson ? "~30 Min." : "Stufe 2 folgt"}</span>
             {nextLesson && (
               <button type="button" className="btn-link" onClick={() => onLesson(nextLesson)}>
                 nur das

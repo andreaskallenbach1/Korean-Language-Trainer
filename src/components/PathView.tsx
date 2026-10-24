@@ -13,22 +13,23 @@ export function PathView({ progress, onLesson }: Props) {
       <h1>Lernpfad</h1>
       <p className="lead">
         Der Weg zu einfachen Gesprächen, orientiert an TOPIK 1 und 2. Bei drei Sitzungen pro Woche schaffst du Hangul in etwa drei
-        Wochen, danach folgt Stufe 1.
+        Wochen und Stufe 1 in weiteren sechs bis acht Wochen.
       </p>
       {ROADMAP.map((stage) => (
-        <section key={stage.stage} className={`stage-block ${stage.stage === 0 ? "" : "is-future"}`}>
+        <section key={stage.stage} className={`stage-block ${LESSONS.some((l) => l.stage === stage.stage) ? "" : "is-future"}`}>
           <header>
             <p className="eyebrow">
               Stufe {stage.stage} · {stage.level}
             </p>
             <h2>{stage.title}</h2>
           </header>
-          {stage.stage === 0 ? (
+          {LESSONS.some((l) => l.stage === stage.stage) ? (
             <ol className="lesson-list">
-              {LESSONS.filter((l) => l.stage === 0).map((l, i) => {
+              {LESSONS.filter((l) => l.stage === stage.stage).map((l, i) => {
+                const g = LESSONS.indexOf(l);
                 const rec = progress.lessons[l.id];
-                const locked = firstOpen >= 0 && i > firstOpen;
-                const current = i === firstOpen;
+                const locked = firstOpen >= 0 && g > firstOpen;
+                const current = g === firstOpen;
                 return (
                   <li key={l.id} className={rec ? "is-done" : current ? "is-current" : locked ? "is-locked" : ""}>
                     <span className="lesson-num">{i + 1}</span>

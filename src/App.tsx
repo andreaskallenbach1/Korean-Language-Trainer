@@ -81,7 +81,7 @@ export function App() {
 
   const startLesson = (l: Lesson) => {
     setSummary(null);
-    setRun({ kind: "lesson", title: `Lektion ${LESSONS.indexOf(l) + 1}: ${l.title}`, exercises: buildLesson(l), lessonId: l.id });
+    setRun({ kind: "lesson", title: `${l.stage === 0 ? "Hangul" : `Stufe ${l.stage}`} · Lektion ${LESSONS.filter((x) => x.stage === l.stage).indexOf(l) + 1}: ${l.title}`, exercises: buildLesson(l), lessonId: l.id });
   };
 
   const startReview = (thenLesson = false) => {

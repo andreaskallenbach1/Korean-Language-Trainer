@@ -26,7 +26,7 @@ function instructions(p: Progress): string {
   return [
     "Du bist ein geduldiger, freundlicher Koreanisch-Tutor für einen deutschsprachigen Anfänger.",
     "Ziel: alltagstaugliches, gesprächsorientiertes Koreanisch (Reisen, K-Dramen, Medien), Niveau TOPIK 1–2. Kein Business-Koreanisch.",
-    `Lernstand: ${done.length} von ${LESSONS.length} Hangul-Lektionen abgeschlossen.`,
+    `Lernstand: ${done.length} von ${LESSONS.length} Lektionen abgeschlossen (zuletzt: ${done[done.length - 1]?.title ?? "keine"}).`,
     jamo ? `Bekannte Zeichen: ${jamo}.` : "Der Lernende kann noch kein Hangul lesen.",
     words ? `Bekannte Wörter: ${words}.` : "",
     "Regeln: Antworte auf Deutsch, kurz und klar (höchstens ca. 150 Wörter, außer es wird mehr verlangt).",

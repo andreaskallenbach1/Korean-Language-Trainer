@@ -1,9 +1,31 @@
 import { JAMO, JAMO_BY_CHAR } from "../data/jamo";
-import { LESSONS, type InfoCard, type Lesson, type Word } from "../data/lessons";
+import {
+  LESSONS,
+  type Dialogue,
+  type DialogueLine,
+  type GrammarCard,
+  type InfoCard,
+  type Lesson,
+  type Mission,
+  type Sentence,
+  type Verb,
+  type Word,
+} from "../data/lessons";
 import { compose, isVowel, romanizeSimple, soundSyllable } from "./hangul";
+import { formatNumber, native, sino } from "./numbers";
 import type { Progress } from "./progress";
 
-export type ChoiceMode = "sound" | "listen" | "read" | "meaning" | "listenWord" | "pair" | "syllable";
+export type ChoiceMode =
+  | "sound"
+  | "listen"
+  | "read"
+  | "meaning"
+  | "listenWord"
+  | "pair"
+  | "syllable"
+  | "fill"
+  | "number"
+  | "conjugate";
 
 export type Exercise =
   | { kind: "info"; card: InfoCard }
@@ -17,15 +39,29 @@ export type Exercise =
       options: string[];
       answer: string;
       word?: Word;
+      /** German meaning shown with fill-in-the-gap and conjugation prompts. */
+      hint?: string;
     }
-  | { kind: "type"; itemId: string; word: Word }
-  | { kind: "speak"; itemId: string; word: Word };
+  | { kind: "type"; itemId: string; word: Word; dictation?: boolean }
+  | { kind: "speak"; itemId: string; word: Word }
+  | { kind: "grammar"; card: GrammarCard }
+  | { kind: "vocab"; words: Word[] }
+  | { kind: "dialogue"; dialogue: Dialogue }
+  | { kind: "role"; itemId: null; prev: DialogueLine | null; line: DialogueLine; options: string[] }
+  | { kind: "build"; itemId: string; sentence: Sentence; tiles: string[] }
+  | { kind: "mission"; mission: Mission; lesson: Lesson };
+
+/** Exercises that teach or wrap up but are not scored. */
+export const UNSCORED = new Set<Exercise["kind"]>(["info", "intro", "grammar", "vocab", "dialogue", "mission"]);
 
 export const jamoId = (c: string) => `j:${c}`;
 export const wordId = (ko: string) => `w:${ko}`;
+export const sentenceId = (ko: string) => `s:${ko}`;
 
 const WORDS: Word[] = LESSONS.flatMap((l) => l.words);
 export const WORD_BY_KO: Record<string, Word> = Object.fromEntries(WORDS.map((w) => [w.ko, w]));
+const SENTENCES: Sentence[] = LESSONS.flatMap((l) => l.sentences ?? []);
+export const SENTENCE_BY_KO: Record<string, Sentence> = Object.fromEntries(SENTENCES.map((x) => [x.ko, x]));
 
 export function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -145,6 +181,7 @@ function practiceSyllables(newJamo: string[], known: string[]): string[] {
 // --- full runs -------------------------------------------------------------
 
 export function buildLesson(lesson: Lesson): Exercise[] {
+  if (lesson.stage >= 1) return buildConversationLesson(lesson);
   const index = LESSONS.indexOf(lesson);
   const known = knownJamoUpTo(index);
   const wordPool = knownWordsUpTo(index);
@@ -193,7 +230,172 @@ export function buildLesson(lesson: Lesson): Exercise[] {
 }
 
 export function itemIdsOfLesson(lesson: Lesson): string[] {
-  return [...lesson.newJamo.filter((c) => c !== "ㅇ").map(jamoId), ...lesson.words.map((w) => wordId(w.ko))];
+  return [
+    ...lesson.newJamo.filter((c) => c !== "ㅇ").map(jamoId),
+    ...lesson.words.map((w) => wordId(w.ko)),
+    ...(lesson.sentences ?? []).map((x) => sentenceId(x.ko)),
+  ];
+}
+
+// --- stage 1+: conversation lessons ------------------------------------------
+
+function sentenceBuild(x: Sentence): Exercise {
+  return { kind: "build", itemId: sentenceId(x.ko), sentence: x, tiles: shuffle([...x.tiles, ...(x.distractors ?? [])]) };
+}
+
+function sentenceDictation(x: Sentence): Exercise {
+  return { kind: "type", itemId: sentenceId(x.ko), word: { ko: x.ko, roman: "", de: x.de }, dictation: true };
+}
+
+const ALL_LEARNER_LINES = LESSONS.flatMap((l) => l.dialogue?.lines.filter((d) => d.who === "B").map((d) => d.ko) ?? []);
+
+function roleExercises(d: Dialogue): Exercise[] {
+  const own = d.lines.filter((l) => l.who === "B").map((l) => l.ko);
+  return d.lines.flatMap((line, i) => {
+    if (line.who !== "B") return [];
+    const distractors = [...own.filter((k) => k !== line.ko), ...ALL_LEARNER_LINES.filter((k) => !own.includes(k))];
+    const near = pick(distractors.filter((k) => own.includes(k)), 1);
+    const far = pick(distractors.filter((k) => !near.includes(k)), 2 - near.length);
+    return [
+      {
+        kind: "role" as const,
+        itemId: null,
+        prev: i > 0 ? d.lines[i - 1] : null,
+        line,
+        options: shuffle([line.ko, ...near, ...far]),
+      },
+    ];
+  });
+}
+
+function gapExercise(g: NonNullable<Lesson["gaps"]>[number]): Exercise {
+  return { kind: "choice", mode: "fill", itemId: null, prompt: g.ko, options: shuffle(g.options), answer: g.answer, hint: g.de };
+}
+
+const VOWEL_A = /[ㅏㅗ]/;
+
+/** Plausible wrong polite forms for a verb (stem + wrong ending). */
+function wrongPolite(v: Verb): string[] {
+  const stem = v.dict.slice(0, -1);
+  const last = stem[stem.length - 1];
+  const parts = last ? decomposeVowel(last) : "";
+  const out = new Set<string>([`${stem}요`]);
+  if (stem.endsWith("하")) {
+    out.add(`${stem}아요`);
+    out.add(`${stem.slice(0, -1)}해어요`);
+  } else {
+    out.add(VOWEL_A.test(parts) ? `${stem}어요` : `${stem}아요`);
+    out.add(`${stem}해요`);
+  }
+  out.delete(v.polite);
+  return [...out];
+}
+
+function decomposeVowel(syl: string): string {
+  const code = (syl.codePointAt(0) ?? 0) - 0xac00;
+  if (code < 0 || code > 11171) return "";
+  return "ㅏㅐㅑㅒㅓㅔㅕㅖㅗㅘㅙㅚㅛㅜㅝㅞㅟㅠㅡㅢㅣ"[Math.floor((code % 588) / 28)];
+}
+
+function conjugateExercise(v: Verb): Exercise {
+  return {
+    kind: "choice", mode: "conjugate", itemId: null, prompt: v.dict, hint: v.de,
+    options: shuffle([v.polite, ...wrongPolite(v).slice(0, 3)]), answer: v.polite,
+  };
+}
+
+const COUNTERS = [
+  { ko: "명", de: "Personen", max: 8 },
+  { ko: "잔", de: "Tassen", max: 6 },
+  { ko: "병", de: "Flaschen", max: 6 },
+  { ko: "개", de: "Stück", max: 10 },
+];
+
+export function numberExercise(kind: "sino" | "native"): Exercise {
+  if (kind === "sino") {
+    // prices in Won: 1.000–59.500 in steps of 500
+    const n = (2 + Math.floor(Math.random() * 118)) * 500;
+    const near = [n * 10, Math.max(500, n / 10), n + 1000, n >= 2000 ? n - 1000 : n + 2000, n + 500].filter(
+      (x) => Number.isInteger(x) && x !== n && x <= 600000,
+    );
+    const label = (x: number) => `${formatNumber(x)} Won`;
+    return {
+      kind: "choice", mode: "number", itemId: null, prompt: "", audio: `${sino(n)} 원`,
+      options: shuffle([label(n), ...pick([...new Set(near)], 3).map(label)]), answer: label(n),
+    };
+  }
+  if (Math.random() < 0.3) {
+    const age = 18 + Math.floor(Math.random() * 30);
+    const near = [age + 1, age - 1, age + 10, age - 10].filter((x) => x >= 11 && x <= 59);
+    const label = (x: number) => `${x} Jahre`;
+    return {
+      kind: "choice", mode: "number", itemId: null, prompt: "", audio: `${native(age, true)} 살`,
+      options: shuffle([label(age), ...pick(near, 3).map(label)]), answer: label(age),
+    };
+  }
+  const c = COUNTERS[Math.floor(Math.random() * COUNTERS.length)];
+  const n = 1 + Math.floor(Math.random() * c.max);
+  const others = [1, 2, 3, 4, 5, 6, 7, 8].filter((x) => x !== n);
+  const label = (x: number) => `${x} ${c.de}`;
+  return {
+    kind: "choice", mode: "number", itemId: null, prompt: "", audio: `${native(n, true)} ${c.ko}`,
+    options: shuffle([label(n), ...pick(others, 3).map(label)]), answer: label(n),
+  };
+}
+
+function chunks<T>(arr: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
+
+function buildConversationLesson(lesson: Lesson): Exercise[] {
+  const index = LESSONS.indexOf(lesson);
+  const wordPool = knownWordsUpTo(index);
+  const [firstGrammar, ...moreGrammar] = lesson.grammar ?? [];
+  const ex: Exercise[] = [];
+
+  if (firstGrammar) ex.push({ kind: "grammar", card: firstGrammar });
+
+  // new words in small groups: look, listen, then check the meaning
+  for (const group of chunks(lesson.words, 5)) {
+    ex.push({ kind: "vocab", words: group });
+    ex.push(...shuffle(group).map((w) => wordMeaning(w, wordPool)));
+  }
+
+  if (lesson.dialogue) {
+    ex.push({ kind: "dialogue", dialogue: lesson.dialogue });
+    ex.push(...roleExercises(lesson.dialogue));
+  }
+
+  for (const card of moreGrammar) ex.push({ kind: "grammar", card });
+  ex.push(...shuffle(lesson.gaps ?? []).map(gapExercise));
+
+  if (lesson.verbs) ex.push(...pick(lesson.verbs, 6).map(conjugateExercise));
+  if (lesson.numbers) for (let i = 0; i < 6; i++) ex.push(numberExercise(lesson.numbers));
+
+  ex.push(...(lesson.sentences ?? []).map(sentenceBuild));
+
+  // second pass over the words: hearing and writing
+  const words = shuffle(lesson.words);
+  words.slice(0, 4).forEach((w) => ex.push(wordListen(w, wordPool)));
+  words.slice(4, 7).forEach((w) => ex.push({ kind: "type", itemId: wordId(w.ko), word: w }));
+
+  const sentences = shuffle(lesson.sentences ?? []);
+  sentences.slice(0, 2).forEach((x) => ex.push(sentenceDictation(x)));
+
+  const myLines = shuffle(lesson.dialogue?.lines.filter((l) => l.who === "B") ?? []).slice(0, 2);
+  myLines.forEach((l) => {
+    const match = SENTENCE_BY_KO[l.ko];
+    ex.push({
+      kind: "speak",
+      itemId: match ? sentenceId(l.ko) : wordId(lesson.words[0].ko),
+      word: { ko: l.ko, roman: "", de: l.de },
+    });
+  });
+
+  if (lesson.mission) ex.push({ kind: "mission", mission: lesson.mission, lesson });
+  return ex;
 }
 
 function allKnown(p: Progress) {
@@ -210,6 +412,11 @@ function exerciseForItem(id: string, jamoPool: string[], wordPool: Word[]): Exer
     const c = id.slice(2);
     if (!JAMO_BY_CHAR[c]) return null;
     return Math.random() < 0.5 ? jamoSound(c, jamoPool) : jamoListen(c, jamoPool);
+  }
+  if (id.startsWith("s:")) {
+    const x = SENTENCE_BY_KO[id.slice(2)];
+    if (!x) return null;
+    return Math.random() < 0.6 ? sentenceBuild(x) : sentenceDictation(x);
   }
   const w = WORD_BY_KO[id.slice(2)];
   if (!w) return null;
@@ -253,7 +460,8 @@ export function buildPractice(p: Progress, kind: PracticeKind, count = 16): Exer
       const w = pick(words, 1)[0];
       ex.push({ kind: "type", itemId: wordId(w.ko), word: w });
     } else {
-      const ids = [...jamo.map(jamoId), ...words.map((w) => wordId(w.ko))];
+      const sentenceIds = Object.keys(p.items).filter((k) => k.startsWith("s:"));
+      const ids = [...jamo.map(jamoId), ...words.map((w) => wordId(w.ko)), ...sentenceIds];
       const e = exerciseForItem(pick(ids, 1)[0], jamo, words);
       if (e) ex.push(e);
     }

@@ -40,15 +40,46 @@ function pickVoice(preferred: string): SpeechSynthesisVoice | undefined {
 
 export const speechPrefs = { rate: 0.85, voiceURI: "" };
 
-export function speak(text: string, rate = speechPrefs.rate): void {
-  if (!ttsSupported()) return;
-  speechSynthesis.cancel();
+/** "A"/"B" give two dialogue partners different voices (or pitches with only one voice). */
+export type Voice = "A" | "B" | undefined;
+
+function utterance(text: string, rate: number, who: Voice): SpeechSynthesisUtterance {
   const u = new SpeechSynthesisUtterance(text);
   u.lang = "ko-KR";
   u.rate = rate;
-  const v = pickVoice(speechPrefs.voiceURI);
+  const ko = koreanVoices();
+  let v = pickVoice(speechPrefs.voiceURI);
+  if (who === "B" && ko.length > 1) {
+    v = ko.find((x) => x !== v && /natural|online|google/i.test(x.name)) ?? ko.find((x) => x !== v) ?? v;
+  } else if (who === "B") {
+    u.pitch = 1.25;
+  }
   if (v) u.voice = v;
-  speechSynthesis.speak(u);
+  return u;
+}
+
+export function speak(text: string, rate = speechPrefs.rate, who?: Voice): void {
+  if (!ttsSupported()) return;
+  speechSynthesis.cancel();
+  speechSynthesis.speak(utterance(text, rate, who));
+}
+
+/** Speaks and resolves when finished (or after a timeout if the browser never reports it). */
+export function speakAsync(text: string, who?: Voice, rate = speechPrefs.rate): Promise<void> {
+  if (!ttsSupported()) return Promise.resolve();
+  return new Promise((resolve) => {
+    const u = utterance(text, rate, who);
+    const timer = setTimeout(resolve, 1500 + text.length * 250);
+    u.onend = u.onerror = () => {
+      clearTimeout(timer);
+      resolve();
+    };
+    speechSynthesis.speak(u);
+  });
+}
+
+export function stopSpeaking(): void {
+  if (ttsSupported()) speechSynthesis.cancel();
 }
 
 // --- recognition -----------------------------------------------------------
