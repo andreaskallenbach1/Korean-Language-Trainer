@@ -140,3 +140,22 @@ describe("numbers", () => {
     expect(phone("010")).toBe("공일공");
   });
 });
+
+describe("handwriting", () => {
+  it("has stroke data for every jamo and accepts a perfect copy", async () => {
+    const { STROKES, checkStrokes } = await import("../src/lib/strokes");
+    const { JAMO } = await import("../src/data/jamo");
+    for (const j of JAMO) {
+      expect(STROKES[j.char], j.char).toBeTruthy();
+      expect(checkStrokes(j.char, STROKES[j.char]).ok, j.char).toBe(true);
+    }
+  });
+
+  it("notices wrong direction, order and count", async () => {
+    const { STROKES, checkStrokes } = await import("../src/lib/strokes");
+    const a = STROKES["ㅏ"];
+    expect(checkStrokes("ㅏ", [a[0].slice().reverse(), a[1]]).ok).toBe(false);
+    expect(checkStrokes("ㅏ", [a[1], a[0]]).ok).toBe(false);
+    expect(checkStrokes("ㅏ", [a[0]]).messages[0]).toContain("1 Strich");
+  });
+});

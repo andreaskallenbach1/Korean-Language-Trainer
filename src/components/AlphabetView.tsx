@@ -4,6 +4,7 @@ import { LESSONS } from "../data/lessons";
 import { compose, FINALS, INITIALS, MEDIALS, romanizeSimple, soundSyllable } from "../lib/hangul";
 import type { Progress } from "../lib/progress";
 import { SyllableAssembly } from "./SyllableAssembly";
+import { HandwritingPad, StrokeOrder } from "./HandwritingPad";
 import { strength } from "../lib/srs";
 import { speak } from "../lib/speech";
 
@@ -66,6 +67,11 @@ export function AlphabetView({ progress }: { progress: Progress }) {
             <span className="label">Merkhilfe</span> {j.mnemonic}
           </p>
           <p className="muted small">Stand: {learned.has(j.char) ? strength(progress.items[`j:${j.char}`]) : "noch nicht gelernt"}</p>
+          <StrokeOrder jamo={j.char} size={160} />
+          <details className="write-details">
+            <summary>Schreiben üben</summary>
+            <HandwritingPad jamo={j.char} />
+          </details>
         </aside>
       </div>
 

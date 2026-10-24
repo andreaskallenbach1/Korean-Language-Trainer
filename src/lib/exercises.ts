@@ -51,10 +51,11 @@ export type Exercise =
   | { kind: "dialogue"; dialogue: Dialogue }
   | { kind: "role"; itemId: null; prev: DialogueLine | null; line: DialogueLine; options: string[] }
   | { kind: "build"; itemId: string; sentence: Sentence; tiles: string[] }
-  | { kind: "mission"; mission: Mission; lesson: Lesson };
+  | { kind: "mission"; mission: Mission; lesson: Lesson }
+  | { kind: "write"; jamo: string };
 
 /** Exercises that teach or wrap up but are not scored. */
-export const UNSCORED = new Set<Exercise["kind"]>(["info", "intro", "grammar", "vocab", "dialogue", "mission"]);
+export const UNSCORED = new Set<Exercise["kind"]>(["info", "intro", "grammar", "vocab", "dialogue", "mission", "write"]);
 
 export const jamoId = (c: string) => `j:${c}`;
 export const wordId = (ko: string) => `w:${ko}`;
@@ -205,6 +206,7 @@ export function buildLesson(lesson: Lesson): Exercise[] {
   const drilled = lesson.newJamo.filter((c) => c !== "ㅇ");
   for (const c of lesson.newJamo) {
     ex.push({ kind: "intro", jamo: c });
+    ex.push({ kind: "write", jamo: c });
     if (c !== "ㅇ") ex.push(jamoSound(c, known));
   }
   ex.push(...shuffle(drilled.map((c) => jamoListen(c, known))));

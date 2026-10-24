@@ -1732,3 +1732,118 @@ nav {
 .dash-mistakes .ko {
   font-size: 1.1rem;
 }
+
+/* ---- handwriting ---- */
+.stroke-order {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  background: none;
+  border: none;
+  padding: 0;
+  max-width: 100%;
+}
+.stroke-order svg {
+  max-width: 100%;
+  height: auto;
+}
+.guide rect {
+  fill: var(--surface-2);
+  stroke: var(--line);
+  stroke-width: 0.8;
+}
+.guide line {
+  stroke: var(--line);
+  stroke-width: 0.5;
+  stroke-dasharray: 2 2;
+}
+.stroke-ghost {
+  fill: none;
+  stroke: var(--line);
+  stroke-width: 7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.stroke-anim {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: draw 0.8s ease forwards;
+}
+@keyframes draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+.stroke-num {
+  opacity: 0;
+  animation: appear 0.2s ease forwards;
+}
+.stroke-num circle {
+  fill: var(--persimmon);
+}
+.stroke-num text {
+  fill: #fff;
+  font-size: 6.5px;
+  font-weight: 700;
+  font-family: var(--font-body);
+}
+@keyframes appear {
+  to {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .stroke-anim {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+  .stroke-num {
+    animation: none;
+    opacity: 1;
+  }
+}
+.write-grid {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+.pad {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  min-width: 0;
+}
+.pad-canvas {
+  width: min(260px, 100%);
+  aspect-ratio: 1;
+  height: auto;
+  border: 2px solid var(--line);
+  border-radius: 12px;
+  touch-action: none;
+  cursor: crosshair;
+  background: #fff;
+}
+.ai-feedback {
+  background: var(--celadon-soft);
+  border-radius: 10px;
+  padding: 0.7rem 0.9rem;
+}
+.write-details summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--celadon);
+  padding: 0.3rem 0;
+}
+@media (max-width: 640px) {
+  .write-grid {
+    grid-template-columns: 1fr;
+    justify-items: center;
+  }
+}

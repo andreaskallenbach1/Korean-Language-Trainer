@@ -10,6 +10,7 @@ import { Keyboard } from "./Keyboard";
 import { BuildStep, DialogueStep, GrammarStep, RoleStep, VocabStep } from "./ConversationSteps";
 import { MissionStep } from "./MissionStep";
 import { SyllableAssembly } from "./SyllableAssembly";
+import { HandwritingPad, StrokeOrder } from "./HandwritingPad";
 import { SpeakerButton, useEnter, WordImage, WordReveal } from "./ui";
 
 interface Props {
@@ -140,6 +141,7 @@ export function Player({ title, exercises, showRoman, lessonId, onFinish, onAbor
         )}
         {entry.ex.kind === "speak" && <SpeakStep word={entry.ex.word} onAnswer={answer} onNext={next} />}
         {entry.ex.kind === "grammar" && <GrammarStep card={entry.ex.card} onNext={next} />}
+        {entry.ex.kind === "write" && <WriteStep jamo={entry.ex.jamo} onNext={next} />}
         {entry.ex.kind === "vocab" && <VocabStep words={entry.ex.words} showRoman={showRoman} onNext={next} />}
         {entry.ex.kind === "dialogue" && <DialogueStep dialogue={entry.ex.dialogue} onNext={next} />}
         {entry.ex.kind === "role" && <RoleStep ex={entry.ex} onAnswer={answer} onNext={next} />}
@@ -156,6 +158,21 @@ export function Player({ title, exercises, showRoman, lessonId, onFinish, onAbor
         )}
       </div>
       <p className="player-foot">{scoredTotal} Aufgaben in dieser Runde · Fehler kommen am Ende noch einmal</p>
+    </div>
+  );
+}
+
+function WriteStep({ jamo, onNext }: { jamo: string; onNext: () => void }) {
+  return (
+    <div className="card write">
+      <p className="eyebrow">Schreiben: Schau dir die Strichfolge an und zeichne {jamo} nach</p>
+      <div className="write-grid">
+        <StrokeOrder jamo={jamo} />
+        <HandwritingPad jamo={jamo} />
+      </div>
+      <button type="button" className="btn" onClick={onNext}>
+        Weiter
+      </button>
     </div>
   );
 }
