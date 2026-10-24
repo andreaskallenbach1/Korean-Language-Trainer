@@ -15,6 +15,8 @@ export interface Word {
 export interface InfoCard {
   title: string;
   body: string[];
+  /** A syllable to show being assembled from its letters. */
+  demo?: string;
 }
 
 export interface GrammarCard {
@@ -98,6 +100,7 @@ const HANGUL_LESSONS: Lesson[] = [
     info: [
       {
         title: "So funktioniert Hangul",
+        demo: "한",
         body: [
           "Hangul wurde 1443 unter König Sejong erfunden, damit alle Menschen lesen lernen können, nicht nur Gelehrte. Es ist ein Alphabet: Jedes Zeichen steht für einen Laut.",
           "Die Buchstaben stehen aber nicht in einer Reihe. Sie werden zu Silbenblöcken zusammengesetzt: 한 = ㅎ + ㅏ + ㄴ.",
@@ -139,6 +142,7 @@ const HANGUL_LESSONS: Lesson[] = [
     info: [
       {
         title: "Konsonant + Vokal",
+        demo: "노",
         body: [
           "Jetzt ersetzt du das stumme ㅇ durch einen echten Konsonanten: ㄱ + ㅏ = 가, ㄴ + ㅗ = 노.",
           "Das Prinzip bleibt gleich: Senkrechte Vokale stehen rechts, waagerechte darunter.",
@@ -322,6 +326,7 @@ const HANGUL_LESSONS: Lesson[] = [
     info: [
       {
         title: "Konsonanten unten im Block",
+        demo: "밥",
         body: [
           "Ein Konsonant kann auch unten im Silbenblock stehen: 한 = ㅎ + ㅏ + ㄴ.",
           "Diesen Schlusskonsonanten nennt man 받침 (Batchim, „Stütze“).",
@@ -378,6 +383,7 @@ const HANGUL_LESSONS: Lesson[] = [
     info: [
       {
         title: "Zwei Vokale werden einer",
+        demo: "과",
         body: [
           "Manche Vokale werden aus zwei Vokalen gebaut: ㅗ + ㅏ = ㅘ (wa), ㅜ + ㅓ = ㅝ (wo).",
           "Auf der Tastatur tippst du einfach beide nacheinander: ㅗ dann ㅏ ergibt ㅘ.",

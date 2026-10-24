@@ -3,6 +3,7 @@ import { GROUP_LABELS, JAMO, JAMO_BY_CHAR, type JamoGroup } from "../data/jamo";
 import { LESSONS } from "../data/lessons";
 import { compose, FINALS, INITIALS, MEDIALS, romanizeSimple, soundSyllable } from "../lib/hangul";
 import type { Progress } from "../lib/progress";
+import { SyllableAssembly } from "./SyllableAssembly";
 import { strength } from "../lib/srs";
 import { speak } from "../lib/speech";
 
@@ -122,6 +123,7 @@ function SyllableBuilder() {
         </button>
         <span className="builder-roman">{romanizeSimple(syl)}</span>
       </div>
+      <SyllableAssembly syllable={syl} />
     </section>
   );
 }

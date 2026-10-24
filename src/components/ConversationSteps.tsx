@@ -3,7 +3,7 @@ import type { Dialogue, GrammarCard, Word } from "../data/lessons";
 import type { Exercise } from "../lib/exercises";
 import { speak, speakAsync, stopSpeaking } from "../lib/speech";
 import { HangulText } from "./HangulText";
-import { SpeakerButton, useEnter } from "./ui";
+import { SpeakerButton, useEnter, WordImage } from "./ui";
 
 export function GrammarStep({ card, onNext }: { card: GrammarCard; onNext: () => void }) {
   useEnter(onNext);
@@ -61,6 +61,7 @@ export function VocabStep({ words, showRoman, onNext }: { words: Word[]; showRom
         {words.map((w, i) => (
           <li key={w.ko} className={playing === i ? "is-playing" : ""}>
             <button type="button" className="vocab-ko ko" onClick={() => speak(w.ko)}>
+              <WordImage ko={w.ko} size="sm" />
               {w.ko}
             </button>
             <span className="vocab-de">

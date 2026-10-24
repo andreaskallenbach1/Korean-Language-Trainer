@@ -1417,3 +1417,318 @@ nav {
     max-width: 95%;
   }
 }
+
+/* ---- learning path as metro lines ---- */
+.metro {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+.metro-head {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+}
+.line-badge {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 50%;
+  background: var(--line);
+  color: #fff;
+  font-weight: 700;
+  font-size: 1.25rem;
+  font-family: var(--font-body);
+}
+.stations {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.station {
+  position: relative;
+  display: grid;
+  grid-template-columns: 2.6rem minmax(0, 1fr) auto;
+  gap: 0.9rem;
+  align-items: start;
+  padding: 0.7rem 0;
+}
+/* the track: a thick line through all station dots */
+.station::before {
+  content: "";
+  position: absolute;
+  left: calc(1.3rem - 4px);
+  top: 0;
+  bottom: 0;
+  width: 8px;
+  background: var(--line);
+}
+.station:first-child::before {
+  top: 1.5rem;
+}
+.station:last-child::before {
+  bottom: calc(100% - 1.5rem);
+}
+.is-future .station::before {
+  background: repeating-linear-gradient(var(--line) 0 8px, transparent 8px 14px);
+  opacity: 0.45;
+}
+.station-dot {
+  position: relative;
+  z-index: 1;
+  justify-self: center;
+  margin-top: 0.35rem;
+  width: 1.3rem;
+  height: 1.3rem;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 4px solid var(--line);
+}
+.station.is-done .station-dot {
+  background: var(--line);
+}
+.station.is-current .station-dot {
+  width: 1.7rem;
+  height: 1.7rem;
+  margin-top: 0.15rem;
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--line) 25%, transparent);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .station.is-current .station-dot {
+    animation: halt 2s ease-in-out infinite;
+  }
+}
+@keyframes halt {
+  50% {
+    box-shadow: 0 0 0 9px color-mix(in srgb, var(--line) 10%, transparent);
+  }
+}
+.station.is-locked .station-body,
+.station.is-future .station-body {
+  opacity: 0.55;
+}
+.station-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+.station-name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.2rem 0.5rem;
+}
+.station-name .ko {
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+.here {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #fff;
+  background: var(--line);
+  border-radius: 999px;
+  padding: 0.1rem 0.55rem;
+}
+.station-lesson {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem 0.6rem;
+  align-items: baseline;
+}
+.station-fact {
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+  max-width: 60ch;
+  border-left: 3px solid color-mix(in srgb, var(--line) 40%, transparent);
+  padding-left: 0.6rem;
+  margin-top: 0.2rem;
+}
+.station-side {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+.metro-note {
+  padding-left: 3.5rem;
+}
+@media (max-width: 640px) {
+  .station {
+    grid-template-columns: 2.6rem minmax(0, 1fr);
+  }
+  .station-side {
+    grid-column: 2;
+  }
+}
+
+/* ---- syllable assembly ---- */
+.assembly {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+}
+.assembly-box {
+  position: relative;
+  width: min(220px, 60vw);
+  aspect-ratio: 1;
+  max-width: 100%;
+  border: 2px dashed var(--line);
+  border-radius: 18px;
+  background: var(--surface-2);
+  padding: 0;
+  overflow: hidden;
+}
+.assembly-piece {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  line-height: 1;
+  transition: left 0.8s cubic-bezier(0.5, 0, 0.2, 1), top 0.8s cubic-bezier(0.5, 0, 0.2, 1), font-size 0.8s ease, opacity 0.4s ease;
+}
+.piece-0 {
+  color: var(--celadon);
+}
+.piece-1 {
+  color: var(--persimmon);
+}
+.piece-2 {
+  color: var(--ink);
+}
+.assembly-result {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 7.5rem;
+  line-height: 1;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+.phase-2 .assembly-piece {
+  opacity: 0;
+}
+.phase-2 .assembly-result {
+  opacity: 1;
+}
+.phase-2.assembly-box {
+  border-style: solid;
+  border-color: var(--celadon);
+}
+.assembly-caption {
+  font-size: 1.1rem;
+  color: var(--ink-soft);
+}
+@media (prefers-reduced-motion: reduce) {
+  .assembly-piece,
+  .assembly-result {
+    transition: none;
+  }
+}
+
+/* ---- word photos ---- */
+.word-img {
+  display: block;
+  object-fit: cover;
+  border-radius: 10px;
+  background: var(--surface-2);
+  max-width: 100%;
+}
+.word-img-sm {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 8px;
+}
+.word-img-md {
+  width: 6rem;
+  height: 6rem;
+}
+.word-img-lg {
+  width: 100%;
+  aspect-ratio: 1;
+  height: auto;
+}
+.vocab-ko {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+.reveal .word-img-sm {
+  align-self: center;
+}
+.options-pictures {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.options-pictures .option {
+  position: relative;
+  flex-direction: column;
+  padding: 0.5rem;
+  gap: 0.4rem;
+}
+.options-pictures .option-key {
+  position: absolute;
+  top: 0.8rem;
+  left: 0.8rem;
+  z-index: 1;
+  background: var(--surface);
+}
+.picture-label {
+  font-size: 1.1rem;
+}
+@media (max-width: 640px) {
+  .options-pictures {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 480px) {
+  .options-pictures {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* ---- mistake notebook ---- */
+.mistake-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 0.6rem;
+}
+.mistake-list li {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.8rem 1rem;
+}
+.mistake-ko {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 1.4rem;
+}
+.mistake-de {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.92rem;
+}
+.mistake-count {
+  color: var(--persimmon);
+  letter-spacing: 0.1em;
+  font-size: 0.7rem;
+}
+.dash-mistakes {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+}
+.dash-mistakes .ko {
+  font-size: 1.1rem;
+}

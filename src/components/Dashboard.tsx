@@ -1,6 +1,7 @@
 import { JAMO } from "../data/jamo";
 import { LESSONS, type Lesson } from "../data/lessons";
-import { dueItems, type PracticeKind } from "../lib/exercises";
+import { describeItem, dueItems, type PracticeKind } from "../lib/exercises";
+import { STATIONS } from "../data/stations";
 import { SESSION_MINUTES, WEEKLY_GOAL_DAYS, weekStats, weekStreak, type Progress } from "../lib/progress";
 import type { SyncMode } from "../lib/storage";
 
@@ -12,11 +13,12 @@ interface Props {
   onReview: () => void;
   onLesson: (l: Lesson) => void;
   onPractice: (k: PracticeKind) => void;
+  onMistakes: () => void;
 }
 
 const WEEKDAYS = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
 
-export function Dashboard({ progress, sync, nextLesson, onSession, onReview, onLesson, onPractice }: Props) {
+export function Dashboard({ progress, sync, nextLesson, onSession, onReview, onLesson, onPractice, onMistakes }: Props) {
   const now = Date.now();
   const due = dueItems(progress, now).length;
   const week = weekStats(progress, now);
@@ -29,6 +31,12 @@ export function Dashboard({ progress, sync, nextLesson, onSession, onReview, onL
   const reviewMin = Math.max(5, Math.round(Math.min(due, 30) * 0.4));
   const isNew = done.length === 0;
   const maxMin = Math.max(SESSION_MINUTES * 2, ...week.days.map((d) => d.minutes));
+  const station = nextLesson ? STATIONS[nextLesson.id] : undefined;
+  const hardest = Object.entries(progress.mistakes)
+    .sort((a, b) => b[1].count - a[1].count)
+    .slice(0, 5)
+    .map(([id]) => describeItem(id)?.ko)
+    .filter(Boolean);
 
   return (
     <div className="dash">
@@ -42,7 +50,14 @@ export function Dashboard({ progress, sync, nextLesson, onSession, onReview, onL
       <section className="session card">
         <div className="session-head">
           <div>
-            <p className="eyebrow">Deine nächste Sitzung · ca. 45–60 Minuten</p>
+            <p className="eyebrow">
+              Deine nächste Sitzung · ca. 45–60 Minuten
+              {station && (
+                <>
+                  {" "}· Nächster Halt <span className="ko">{station.ko}</span>
+                </>
+              )}
+            </p>
             <h2>{nextLesson ? nextLesson.title : "Alle Lektionen abgeschlossen"}</h2>
           </div>
           <button type="button" className="btn btn-lg" onClick={onSession} disabled={!nextLesson && due === 0}>
@@ -137,6 +152,20 @@ export function Dashboard({ progress, sync, nextLesson, onSession, onReview, onL
           <p className="muted small">{progress.xp} Punkte gesammelt</p>
         </section>
       </div>
+
+      {hardest.length > 0 && (
+        <section className="card dash-mistakes">
+          <div>
+            <p className="eyebrow">Fehlerheft</p>
+            <p>
+              Das hakt noch: <span className="ko">{hardest.join(" · ")}</span>
+            </p>
+          </div>
+          <button type="button" className="btn-secondary" onClick={onMistakes}>
+            Ansehen und üben
+          </button>
+        </section>
+      )}
 
       <section className="card practice">
         <p className="eyebrow">Freies Üben</p>

@@ -17,11 +17,18 @@ export interface Settings {
   showRoman: boolean;
 }
 
+export interface MistakeRecord {
+  count: number;
+  last: number;
+}
+
 export interface Progress {
   version: 1;
   updatedAt: number;
   xp: number;
   items: Record<string, SrsState>;
+  /** Items that went wrong recently; the count drops again with correct answers. */
+  mistakes: Record<string, MistakeRecord>;
   lessons: Record<string, LessonRecord>;
   log: StudyLog[];
   settings: Settings;
@@ -36,6 +43,7 @@ export function emptyProgress(): Progress {
     updatedAt: 0,
     xp: 0,
     items: {},
+    mistakes: {},
     lessons: {},
     log: [],
     settings: { rate: 0.85, voiceURI: "", showRoman: true },
@@ -51,6 +59,7 @@ export function normalize(raw: unknown): Progress {
     updatedAt: typeof p.updatedAt === "number" ? p.updatedAt : 0,
     xp: typeof p.xp === "number" ? p.xp : 0,
     items: p.items && typeof p.items === "object" ? p.items : {},
+    mistakes: p.mistakes && typeof p.mistakes === "object" ? p.mistakes : {},
     lessons: p.lessons && typeof p.lessons === "object" ? p.lessons : {},
     log: Array.isArray(p.log) ? p.log : [],
     settings: { ...base.settings, ...(p.settings ?? {}) },
@@ -75,8 +84,13 @@ export interface RunResult {
 
 export function applyRun(p: Progress, run: RunResult, now: number): Progress {
   const items = { ...p.items };
+  const mistakes = { ...p.mistakes };
   for (const [id, passed] of Object.entries(run.items)) {
     items[id] = schedule(items[id], passed, now);
+    const prev = mistakes[id];
+    if (!passed) mistakes[id] = { count: Math.min(9, (prev?.count ?? 0) + 1), last: now };
+    else if (prev && prev.count <= 1) delete mistakes[id];
+    else if (prev) mistakes[id] = { ...prev, count: prev.count - 1 };
   }
   const lessons = { ...p.lessons };
   const score = run.total ? run.correct / run.total : 0;
@@ -100,6 +114,7 @@ export function applyRun(p: Progress, run: RunResult, now: number): Progress {
     updatedAt: now,
     xp: p.xp + run.correct * 10 + bonus + (run.bonusXp ?? 0),
     items,
+    mistakes,
     lessons,
     log: log.slice(-400),
   };

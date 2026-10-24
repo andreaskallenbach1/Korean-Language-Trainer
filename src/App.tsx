@@ -1,17 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlphabetView } from "./components/AlphabetView";
 import { Dashboard } from "./components/Dashboard";
+import { MistakesView } from "./components/MistakesView";
 import { PathView } from "./components/PathView";
 import { Player } from "./components/Player";
 import { SettingsView } from "./components/SettingsView";
 import { TutorView } from "./components/TutorView";
 import { LESSONS, type Lesson } from "./data/lessons";
-import { buildLesson, buildPractice, buildReview, type Exercise, type PracticeKind } from "./lib/exercises";
+import { buildFromItems, buildLesson, buildPractice, buildReview, type Exercise, type PracticeKind } from "./lib/exercises";
 import { applyRun, emptyProgress, type Progress, type RunResult, type Settings } from "./lib/progress";
 import { speechPrefs } from "./lib/speech";
 import { loadLocal, ProgressStore, type SyncMode } from "./lib/storage";
 
-type View = "home" | "path" | "alphabet" | "tutor" | "settings";
+type View = "home" | "path" | "mistakes" | "alphabet" | "tutor" | "settings";
 type RunKind = "lesson" | "review" | "practice";
 
 interface Run {
@@ -31,6 +32,7 @@ interface Summary {
 const NAV: { id: View; label: string }[] = [
   { id: "home", label: "Heute" },
   { id: "path", label: "Lernpfad" },
+  { id: "mistakes", label: "Fehlerheft" },
   { id: "alphabet", label: "Alphabet" },
   { id: "tutor", label: "Tutor" },
   { id: "settings", label: "Einstellungen" },
@@ -49,6 +51,7 @@ export function App() {
   const [view, setView] = useState<View>("home");
   const [run, setRun] = useState<Run | null>(null);
   const [summary, setSummary] = useState<Summary | null>(null);
+  const [tutorDraft, setTutorDraft] = useState("");
 
   useEffect(() => {
     let alive = true;
@@ -99,6 +102,13 @@ export function App() {
     if (!exercises.length) return;
     setSummary(null);
     setRun({ kind: "practice", title: PRACTICE_TITLES[k], exercises });
+  };
+
+  const startItems = (ids: string[]) => {
+    const exercises = buildFromItems(progress, ids);
+    if (!exercises.length) return;
+    setSummary(null);
+    setRun({ kind: "practice", title: "Fehlerheft", exercises });
   };
 
   const finish = (result: RunResult, completed: boolean) => {
@@ -177,11 +187,22 @@ export function App() {
             onReview={() => startReview(false)}
             onLesson={startLesson}
             onPractice={startPractice}
+            onMistakes={() => setView("mistakes")}
+          />
+        )}
+        {view === "mistakes" && (
+          <MistakesView
+            progress={progress}
+            onPractice={startItems}
+            onAskTutor={(prompt) => {
+              setTutorDraft(prompt);
+              setView("tutor");
+            }}
           />
         )}
         {view === "path" && <PathView progress={progress} onLesson={startLesson} />}
         {view === "alphabet" && <AlphabetView progress={progress} />}
-        {view === "tutor" && <TutorView progress={progress} />}
+        {view === "tutor" && <TutorView progress={progress} draft={tutorDraft} onDraftUsed={() => setTutorDraft("")} />}
         {view === "settings" && (
           <SettingsView
             progress={progress}

@@ -11,6 +11,7 @@ import {
   type Verb,
   type Word,
 } from "../data/lessons";
+import { WORD_IMAGES } from "../data/images";
 import { compose, isVowel, romanizeSimple, soundSyllable } from "./hangul";
 import { formatNumber, native, sino } from "./numbers";
 import type { Progress } from "./progress";
@@ -25,7 +26,8 @@ export type ChoiceMode =
   | "syllable"
   | "fill"
   | "number"
-  | "conjugate";
+  | "conjugate"
+  | "picture";
 
 export type Exercise =
   | { kind: "info"; card: InfoCard }
@@ -142,6 +144,18 @@ function wordMeaning(w: Word, pool: Word[]): Exercise {
   };
 }
 
+export const hasImage = (w: Word) => !!WORD_IMAGES[w.ko];
+
+/** Hear and read a word, then pick its photo. Needs three other pictured words in the pool. */
+function wordPicture(w: Word, pool: Word[]): Exercise | null {
+  const others = pool.filter((p) => p.ko !== w.ko && hasImage(p));
+  if (!hasImage(w) || others.length < 3) return null;
+  return {
+    kind: "choice", mode: "picture", itemId: wordId(w.ko), prompt: w.ko, audio: w.ko,
+    options: shuffle([w.ko, ...pick(others, 3).map((p) => p.ko)]), answer: w.ko, word: w,
+  };
+}
+
 function wordListen(w: Word, pool: Word[]): Exercise {
   const similar = pool.filter((p) => Math.abs(p.ko.length - w.ko.length) <= 1);
   return {
@@ -223,7 +237,7 @@ export function buildLesson(lesson: Lesson): Exercise[] {
     } else if (kind === "listenWord") {
       ex.push(wordListen(w, wordPool));
     } else {
-      ex.push(wordMeaning(w, wordPool));
+      ex.push(wordPicture(w, wordPool) ?? wordMeaning(w, wordPool));
     }
   });
   return ex;
@@ -360,7 +374,7 @@ function buildConversationLesson(lesson: Lesson): Exercise[] {
   // new words in small groups: look, listen, then check the meaning
   for (const group of chunks(lesson.words, 5)) {
     ex.push({ kind: "vocab", words: group });
-    ex.push(...shuffle(group).map((w) => wordMeaning(w, wordPool)));
+    ex.push(...shuffle(group).map((w) => wordPicture(w, wordPool) ?? wordMeaning(w, wordPool)));
   }
 
   if (lesson.dialogue) {
@@ -421,6 +435,7 @@ function exerciseForItem(id: string, jamoPool: string[], wordPool: Word[]): Exer
   const w = WORD_BY_KO[id.slice(2)];
   if (!w) return null;
   const r = Math.random();
+  if (hasImage(w) && r < 0.2) return wordPicture(w, wordPool) ?? wordMeaning(w, wordPool);
   if (r < 0.3) return wordRead(w, wordPool);
   if (r < 0.55) return wordMeaning(w, wordPool);
   if (r < 0.75) return wordListen(w, wordPool);
@@ -467,4 +482,35 @@ export function buildPractice(p: Progress, kind: PracticeKind, count = 16): Exer
     }
   }
   return ex;
+}
+
+/** Two exercises per item, for targeted practice (e.g. from the mistake notebook). */
+export function buildFromItems(p: Progress, ids: string[]): Exercise[] {
+  const { jamo, words } = allKnown(p);
+  const ex: Exercise[] = [];
+  for (const id of ids) {
+    for (let i = 0; i < 2; i++) {
+      const e = exerciseForItem(id, jamo, words);
+      if (e) ex.push(e);
+    }
+  }
+  return shuffle(ex);
+}
+
+/** Display info for any item id: Korean text and German meaning. */
+export function describeItem(id: string): { ko: string; de: string; kind: string } | null {
+  const key = id.slice(2);
+  if (id.startsWith("j:")) {
+    const j = JAMO_BY_CHAR[key];
+    return j ? { ko: j.char, de: `Zeichen · ${j.roman}`, kind: "Zeichen" } : null;
+  }
+  if (id.startsWith("w:")) {
+    const w = WORD_BY_KO[key];
+    return w ? { ko: w.ko, de: w.de, kind: "Wort" } : null;
+  }
+  if (id.startsWith("s:")) {
+    const x = SENTENCE_BY_KO[key];
+    return x ? { ko: x.ko, de: x.de, kind: "Satz" } : null;
+  }
+  return null;
 }

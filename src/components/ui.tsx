@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { WORD_IMAGES } from "../data/images";
 import type { Word } from "../data/lessons";
 import { speak, type Voice } from "../lib/speech";
 
@@ -24,9 +25,16 @@ export function SpeakerButton({ text, label = "Anhören", big, who }: { text: st
   );
 }
 
+export function WordImage({ ko, size = "md" }: { ko: string; size?: "sm" | "md" | "lg" }) {
+  const img = WORD_IMAGES[ko];
+  if (!img) return null;
+  return <img className={`word-img word-img-${size}`} src={img.src} alt="" title={`Foto: ${img.author} / Unsplash`} />;
+}
+
 export function WordReveal({ word, showRoman }: { word: Word; showRoman: boolean }) {
   return (
     <div className="reveal">
+      <WordImage ko={word.ko} size="sm" />
       <span className="ko reveal-ko">{word.ko}</span>
       {showRoman && word.roman && <span className="reveal-roman">{word.roman}</span>}
       <span className="reveal-de">{word.de}</span>

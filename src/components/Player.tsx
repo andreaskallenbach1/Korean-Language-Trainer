@@ -9,7 +9,8 @@ import { HangulText } from "./HangulText";
 import { Keyboard } from "./Keyboard";
 import { BuildStep, DialogueStep, GrammarStep, RoleStep, VocabStep } from "./ConversationSteps";
 import { MissionStep } from "./MissionStep";
-import { SpeakerButton, useEnter, WordReveal } from "./ui";
+import { SyllableAssembly } from "./SyllableAssembly";
+import { SpeakerButton, useEnter, WordImage, WordReveal } from "./ui";
 
 interface Props {
   title: string;
@@ -38,6 +39,7 @@ const QUESTIONS: Record<string, string> = {
   fill: "Was gehört in die Lücke?",
   number: "Welche Zahl hörst du?",
   conjugate: "Wie lautet die höfliche Alltagsform?",
+  picture: "Welches Bild passt?",
 };
 
 const MISSION_XP = 30;
@@ -169,6 +171,7 @@ function InfoStep({ ex, onNext }: { ex: Extract<Exercise, { kind: "info" }>; onN
           <HangulText text={p} />
         </p>
       ))}
+      {ex.card.demo && <SyllableAssembly syllable={ex.card.demo} />}
       <button type="button" className="btn" onClick={onNext}>
         Weiter
       </button>
@@ -299,13 +302,20 @@ function ChoiceStep({
       ) : (
         <div className={ex.mode === "sound" ? "glyph" : "prompt-word ko"}>{ex.prompt}</div>
       )}
-      <div className={`options ${koOptions ? "options-ko" : ""}`}>
+      <div className={`options ${koOptions ? "options-ko" : ""} ${ex.mode === "picture" ? "options-pictures" : ""}`}>
         {ex.options.map((opt, i) => {
           const state = !picked ? "" : opt === ex.answer ? "is-right" : opt === picked ? "is-wrong" : "is-dim";
           return (
             <button type="button" key={opt} className={`option ${state}`} onClick={() => choose(opt)} disabled={!!picked}>
               <span className="option-key">{i + 1}</span>
-              <span className={koOptions ? "ko" : ""}>{opt}</span>
+              {ex.mode === "picture" ? (
+                <>
+                  <WordImage ko={opt} size="lg" />
+                  {picked && <span className="picture-label ko">{opt}</span>}
+                </>
+              ) : (
+                <span className={koOptions ? "ko" : ""}>{opt}</span>
+              )}
             </button>
           );
         })}
@@ -314,6 +324,7 @@ function ChoiceStep({
         <div className={`feedback ${correct ? "ok" : "bad"}`}>
           <p className="feedback-title">{correct ? "Richtig!" : `Leider falsch. Richtig ist: ${ex.answer}`}</p>
           {ex.word && <WordReveal word={ex.word} showRoman={showRoman} />}
+          {ex.mode === "syllable" && <SyllableAssembly syllable={ex.prompt} />}
           {filled && (
             <p className="row">
               <span className="ko big-inline">{filled}</span>

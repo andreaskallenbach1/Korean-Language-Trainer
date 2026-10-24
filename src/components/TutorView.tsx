@@ -48,10 +48,10 @@ const ERRORS: Record<string, string> = {
 };
 const FATAL = new Set(["not_granted", "sampling_disabled", "not_declared", "capability_disabled", "capability_removed"]);
 
-export function TutorView({ progress }: { progress: Progress }) {
+export function TutorView({ progress, draft = "", onDraftUsed }: { progress: Progress; draft?: string; onDraftUsed?: () => void }) {
   const [sample, setSample] = useState<SampleFn | null | undefined>(undefined);
   const [msgs, setMsgs] = useState<Msg[]>([]);
-  const [input, setInput] = useState("");
+  const [input, setInput] = useState(draft);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const ctl = useRef<AbortController | null>(null);
@@ -70,6 +70,10 @@ export function TutorView({ progress }: { progress: Progress }) {
   useEffect(() => {
     endRef.current?.scrollIntoView({ block: "end" });
   }, [msgs]);
+
+  useEffect(() => {
+    if (draft) onDraftUsed?.();
+  }, [draft, onDraftUsed]);
 
   const send = async (text: string) => {
     if (!sample || busy || !text.trim()) return;
