@@ -1135,6 +1135,7 @@ nav {
   .steps li .step-meta,
   .steps li .btn-link {
     grid-column: 2;
+    justify-self: start;
   }
   .lesson-list li {
     grid-template-columns: 2.4rem 1fr;
