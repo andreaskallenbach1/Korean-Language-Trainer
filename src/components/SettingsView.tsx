@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { emptyProgress, normalize, type Progress, type Settings } from "../lib/progress";
 import { koreanVoices, onVoicesChanged, recognitionSupported, speak, ttsSupported } from "../lib/speech";
 import type { SyncMode } from "../lib/storage";
+import { statusText } from "../lib/status";
 
 interface Props {
   progress: Progress;
@@ -19,6 +20,19 @@ export function SettingsView({ progress, sync, onSettings, onReplace }: Props) {
   const s = progress.settings;
 
   useEffect(() => onVoicesChanged(() => setVoices(koreanVoices())), []);
+
+  const [statusMsg, setStatusMsg] = useState("");
+  const [statusOut, setStatusOut] = useState("");
+  const copyStatus = async () => {
+    const text = statusText(progress);
+    setStatusOut(text);
+    try {
+      await navigator.clipboard.writeText(text);
+      setStatusMsg("Kopiert. Füge den Text in einen Claude-Chat ein und sag z. B. „Lass uns Koreanisch üben“.");
+    } catch {
+      setStatusMsg("Kopieren nicht möglich. Markiere den Text unten und kopiere ihn selbst.");
+    }
+  };
 
   const copyBackup = async () => {
     const json = JSON.stringify(progress);
@@ -94,6 +108,21 @@ export function SettingsView({ progress, sync, onSettings, onReplace }: Props) {
           Umschrift (lateinische Buchstaben) bei Wörtern anzeigen
         </label>
         <p className="muted small">Schalte das aus, sobald du Hangul sicher liest. Das trainiert das echte Lesen.</p>
+      </section>
+
+      <section className="card">
+        <h2>Mit Claude im Chat üben</h2>
+        <p className="muted">
+          Mit dem Skill „koreanisch-tutor“ kannst du in jedem Claude-Chat üben. Damit Claude weiß, wo du stehst, kopiere deinen Lernstand und füge
+          ihn dort ein.
+        </p>
+        <div className="row">
+          <button type="button" className="btn-secondary" onClick={copyStatus}>
+            Lernstand für Claude kopieren
+          </button>
+        </div>
+        {statusOut && <textarea id="status-out" readOnly value={statusOut} rows={6} onFocus={(e) => e.target.select()} />}
+        {statusMsg && <p className="muted">{statusMsg}</p>}
       </section>
 
       <section className="card">

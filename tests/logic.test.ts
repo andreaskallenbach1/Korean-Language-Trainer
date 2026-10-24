@@ -159,3 +159,15 @@ describe("handwriting", () => {
     expect(checkStrokes("ㅏ", [a[0]]).messages[0]).toContain("1 Strich");
   });
 });
+
+describe("status text for the Claude skill", () => {
+  it("summarises lessons, next station and mistakes", async () => {
+    const { statusText } = await import("../src/lib/status");
+    const now = new Date("2026-10-24T10:00:00").getTime();
+    const p = applyRun(emptyProgress(), { items: { "j:ㅏ": true, "w:아이": false }, correct: 5, total: 6, minutes: 25, lessonId: "h1" }, now);
+    const t = statusText(p, now);
+    expect(t).toContain("h1 Die ersten Vokale (83 %)");
+    expect(t).toContain("h2 Erste Konsonanten (Station 시청)");
+    expect(t).toContain("아이 (Kind, 1× falsch)");
+  });
+});
