@@ -23,6 +23,13 @@ export function koreanVoices(): SpeechSynthesisVoice[] {
   return voices.filter((v) => v.lang.toLowerCase().replace("_", "-").startsWith("ko"));
 }
 
+/** "good" means a neural/online voice (Edge "Natural", Chrome "Google"), "basic" a local one. */
+export function voiceQuality(): "none" | "basic" | "good" {
+  const ko = koreanVoices();
+  if (!ko.length) return "none";
+  return ko.some((v) => /natural|online|google/i.test(v.name)) ? "good" : "basic";
+}
+
 export function onVoicesChanged(fn: () => void): () => void {
   listeners.add(fn);
   return () => listeners.delete(fn);
@@ -140,4 +147,33 @@ export function matchesSpoken(heard: string[], target: string): boolean {
   const clean = (s: string) => s.replace(/[\s.,!?~]/g, "");
   const t = clean(target);
   return heard.some((h) => clean(h) === t || clean(h).includes(t));
+}
+
+// --- own recording, to compare with the model voice ---------------------------
+
+export function recordingSupported(): boolean {
+  return typeof MediaRecorder !== "undefined" && !!navigator.mediaDevices?.getUserMedia;
+}
+
+/** Records from the microphone until `stop()` (or 6 s); resolves with a playable URL. */
+export async function startRecording(): Promise<{ stop: () => void; result: Promise<string> }> {
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  const rec = new MediaRecorder(stream);
+  const chunks: Blob[] = [];
+  rec.ondataavailable = (e) => chunks.push(e.data);
+  const result = new Promise<string>((resolve) => {
+    rec.onstop = () => {
+      stream.getTracks().forEach((t) => t.stop());
+      resolve(URL.createObjectURL(new Blob(chunks, { type: rec.mimeType })));
+    };
+  });
+  rec.start();
+  const timer = setTimeout(() => rec.state === "recording" && rec.stop(), 6000);
+  return {
+    stop: () => {
+      clearTimeout(timer);
+      if (rec.state === "recording") rec.stop();
+    },
+    result,
+  };
 }

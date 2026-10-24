@@ -4,6 +4,8 @@ import { describeItem, dueItems, type PracticeKind } from "../lib/exercises";
 import { STATIONS } from "../data/stations";
 import { SESSION_MINUTES, WEEKLY_GOAL_DAYS, weekStats, weekStreak, type Progress } from "../lib/progress";
 import type { SyncMode } from "../lib/storage";
+import { onVoicesChanged, ttsSupported, voiceQuality } from "../lib/speech";
+import { useEffect, useState } from "react";
 
 interface Props {
   progress: Progress;
@@ -46,6 +48,8 @@ export function Dashboard({ progress, sync, nextLesson, onSession, onReview, onL
           <span className="dash-sub">{isNew ? "Los geht's mit Koreanisch." : "Schön, dass du wieder da bist."}</span>
         </h1>
       </header>
+
+      <VoiceHint />
 
       <section className="session card">
         <div className="session-head">
@@ -195,5 +199,21 @@ export function Dashboard({ progress, sync, nextLesson, onSession, onReview, onL
         {sync === "checking" && "Speicher wird verbunden …"}
       </p>
     </div>
+  );
+}
+
+function VoiceHint() {
+  const [quality, setQuality] = useState(voiceQuality());
+  useEffect(() => onVoicesChanged(() => setQuality(voiceQuality())), []);
+  if (quality === "good" || !ttsSupported()) return null;
+  return (
+    <section className="card voice-hint">
+      <p className="eyebrow">Tipp zur Aussprache</p>
+      <p>
+        {quality === "none"
+          ? "Dein Browser hat keine koreanische Stimme. Öffne die App in Microsoft Edge oder Google Chrome, dort ist eine dabei."
+          : "Dein Browser nutzt eine einfache koreanische Stimme. Viel natürlicher klingt sie in Microsoft Edge (Stimme „SunHi Online (Natural)“) oder in Google Chrome („Google 한국의“). Die Stimme kannst du in den Einstellungen wählen."}
+      </p>
+    </section>
   );
 }

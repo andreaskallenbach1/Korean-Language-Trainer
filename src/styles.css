@@ -1847,3 +1847,10 @@ nav {
     justify-items: center;
   }
 }
+.voice-hint {
+  border-color: var(--persimmon);
+  background: var(--persimmon-soft);
+}
+.compare {
+  padding-top: 0.2rem;
+}

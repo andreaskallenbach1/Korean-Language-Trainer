@@ -4,7 +4,7 @@ import type { Word } from "../data/lessons";
 import { shuffle, UNSCORED, type Exercise } from "../lib/exercises";
 import { composeJamo, toKeySequence, keysForJamo, soundSyllable } from "../lib/hangul";
 import type { RunResult } from "../lib/progress";
-import { listenOnce, matchesSpoken, recognitionSupported, speak } from "../lib/speech";
+import { listenOnce, matchesSpoken, recognitionSupported, recordingSupported, speak, startRecording } from "../lib/speech";
 import { HangulText } from "./HangulText";
 import { Keyboard } from "./Keyboard";
 import { BuildStep, DialogueStep, GrammarStep, RoleStep, VocabStep } from "./ConversationSteps";
@@ -465,6 +465,63 @@ function KeyboardEnter({ onEnter }: { onEnter: () => void }) {
   return null;
 }
 
+let recordingBlocked = false;
+
+/** Record yourself, then play your version right after the model voice. */
+function CompareRecorder({ text }: { text: string }) {
+  const [state, setState] = useState<"idle" | "rec" | "done">("idle");
+  const [url, setUrl] = useState("");
+  const [available, setAvailable] = useState(recordingSupported() && !recordingBlocked);
+  const stopRef = useRef<() => void>(() => {});
+  useEffect(() => () => stopRef.current(), []);
+  if (!available) return null;
+
+  const start = async () => {
+    try {
+      const { stop, result } = await startRecording();
+      stopRef.current = stop;
+      setState("rec");
+      const u = await result;
+      setUrl(u);
+      setState("done");
+    } catch {
+      // microphone refused (e.g. inside claude.ai): hide the feature for this visit
+      recordingBlocked = true;
+      setAvailable(false);
+    }
+  };
+
+  const compare = () => {
+    speak(text);
+    const a = new Audio(url);
+    setTimeout(() => void a.play(), 400 + text.length * 260);
+  };
+
+  return (
+    <div className="row compare">
+      {state === "rec" ? (
+        <button type="button" className="btn-mic is-live" onClick={() => stopRef.current()}>
+          ■ Aufnahme beenden
+        </button>
+      ) : (
+        <button type="button" className="btn-secondary" onClick={start}>
+          🎙 {state === "done" ? "Neu aufnehmen" : "Mich aufnehmen"}
+        </button>
+      )}
+      {state === "done" && (
+        <>
+          <button type="button" className="btn-audio" onClick={() => void new Audio(url).play()}>
+            ▶ Meine Aufnahme
+          </button>
+          <button type="button" className="btn-audio" onClick={compare}>
+            ⇄ Vorbild, dann ich
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
 let recognitionBlocked = false;
 
 function SpeakStep({ word, onAnswer, onNext }: { word: Word; onAnswer: (c: boolean) => void; onNext: () => void }) {
@@ -525,6 +582,7 @@ function SpeakStep({ word, onAnswer, onNext }: { word: Word; onAnswer: (c: boole
           🐢 Langsam
         </button>
       </div>
+      <CompareRecorder text={word.ko} />
 
       {phase !== "done" && canRecognize && (
         <div className="speak-rec">
